@@ -32,11 +32,11 @@ echo bun run "%INSTALL_DIR%\src\index.tsx" %%* >> "%BIN_FILE%"
 
 if "%NO_MODIFY_PATH%"=="1" goto :skip_path
 
-:: Add to user PATH via registry
+:: Add to user PATH via registry (avoid setx — truncates at 1024 chars)
 for /f "tokens=2*" %%A in ('reg query "HKCU\Environment" /v Path 2^>nul') do set "CURRENT_PATH=%%B"
 echo !CURRENT_PATH! | findstr /i ".archon\bin" >nul 2>&1
 if errorlevel 1 (
-  setx PATH "%BIN_DIR%;!CURRENT_PATH!"
+  reg add "HKCU\Environment" /v Path /t REG_EXPAND_SZ /d "%BIN_DIR%;!CURRENT_PATH!" /f >nul
   echo   Added %BIN_DIR% to user PATH
 ) else (
   echo   PATH already contains .archon\bin
