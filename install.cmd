@@ -4,7 +4,7 @@ setlocal EnableDelayedExpansion
 set "INSTALL_DIR=%USERPROFILE%\.archon\tools\archon-task-ui"
 set "BIN_DIR=%USERPROFILE%\.archon\bin"
 set "BIN_FILE=%BIN_DIR%\archon-ui.cmd"
-set "REPO_URL=https://github.com/apexj/archon-task-ui"
+set "REPO_URL=https://github.com/KuroXI/archon-task-ui"
 set "NO_MODIFY_PATH=0"
 
 for %%A in (%*) do (

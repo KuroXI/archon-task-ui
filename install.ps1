@@ -8,7 +8,7 @@ $ErrorActionPreference = 'Stop'
 $InstallDir = if ($env:ARCHON_UI_INSTALL_DIR) { $env:ARCHON_UI_INSTALL_DIR } else { "$HOME\.archon\tools\archon-task-ui" }
 $BinDir = "$HOME\.archon\bin"
 $BinFile = "$BinDir\archon-ui.cmd"
-$RepoUrl = "https://github.com/apexj/archon-task-ui"
+$RepoUrl = "https://github.com/KuroXI/archon-task-ui"
 
 Write-Host "Installing Archon Task UI (Windows)..."
 

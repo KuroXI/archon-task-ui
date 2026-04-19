@@ -29,17 +29,17 @@ A live-updating terminal dashboard for monitoring [Archon](https://github.com/co
 
 **macOS / Linux / WSL:**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/apexj/archon-task-ui/master/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/KuroXI/archon-task-ui/master/install.sh | bash
 ```
 
 **Windows PowerShell:**
 ```powershell
-irm https://raw.githubusercontent.com/apexj/archon-task-ui/master/install.ps1 | iex
+irm https://raw.githubusercontent.com/KuroXI/archon-task-ui/master/install.ps1 | iex
 ```
 
 **Windows CMD:**
 ```cmd
-curl -fsSL https://raw.githubusercontent.com/apexj/archon-task-ui/master/install.cmd -o install.cmd && install.cmd && del install.cmd
+curl -fsSL https://raw.githubusercontent.com/KuroXI/archon-task-ui/master/install.cmd -o install.cmd && install.cmd && del install.cmd
 ```
 
 Then open a new terminal and run `archon-ui`.

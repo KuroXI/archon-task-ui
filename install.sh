@@ -4,7 +4,7 @@ set -e
 INSTALL_DIR="${ARCHON_UI_INSTALL_DIR:-$HOME/.archon/tools/archon-task-ui}"
 BIN_DIR="$HOME/.archon/bin"
 BIN_FILE="$BIN_DIR/archon-ui"
-REPO_URL="https://github.com/apexj/archon-task-ui"
+REPO_URL="https://github.com/KuroXI/archon-task-ui"
 
 NO_MODIFY_PATH="${ARCHON_UI_NO_MODIFY_PATH:-0}"
 
