@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Box, Text, useInput } from "ink";
 import { useArchonTasks } from "../hooks/useArchonTasks.js";
+import { useUpdateCheck } from "../hooks/useUpdateCheck.js";
 import { Header } from "./Header.js";
 import { TabBar, TABS } from "./TabBar.js";
 import type { TabFilter } from "./TabBar.js";
@@ -16,6 +17,7 @@ interface AppProps {
 
 export function App({ dbPath }: AppProps): React.ReactElement {
   const { runs, selectedIndex, setSelectedIndex, refresh, error } = useArchonTasks(dbPath);
+  const updateAvailable = useUpdateCheck();
   const [activeTab, setActiveTab] = useState<TabFilter>("running");
   const [logScrollOffset, setLogScrollOffset] = useState(0);
 
@@ -108,6 +110,11 @@ export function App({ dbPath }: AppProps): React.ReactElement {
   return (
     <Box flexDirection="column" height={process.stdout.rows}>
       <Header />
+      {updateAvailable && (
+        <Box paddingX={1} backgroundColor="yellow">
+          <Text color="black" bold>Update available — run: archon-ui update</Text>
+        </Box>
+      )}
       <TabBar activeTab={activeTab} />
       <Box flexDirection="row" flexGrow={1}>
         <Box flexShrink={0} width={32} overflow="hidden">

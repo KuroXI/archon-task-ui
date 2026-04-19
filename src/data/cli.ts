@@ -3,8 +3,17 @@ import { join } from "path";
 
 const DEFAULT_DB_PATH = join(homedir(), ".archon", "archon.db");
 
-export function parseArgs(argv: string[] = process.argv): { dbPath: string } {
+export function parseArgs(argv: string[] = process.argv): { dbPath: string; subcommand: string | null } {
   let dbPath = DEFAULT_DB_PATH;
+  let subcommand: string | null = null;
+
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === "update") {
+      subcommand = "update";
+      break;
+    }
+  }
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -22,5 +31,5 @@ export function parseArgs(argv: string[] = process.argv): { dbPath: string } {
     }
   }
 
-  return { dbPath };
+  return { dbPath, subcommand };
 }
