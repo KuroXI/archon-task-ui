@@ -44,6 +44,7 @@ export function fetchWorkflowRuns(db: Database): WorkflowRun[] {
     working_path: string | null;
     started_at: string;
     branch_name: string | null;
+    ended_at: string | null;
   }, []>(`
     SELECT
       r.id,
@@ -51,7 +52,8 @@ export function fetchWorkflowRuns(db: Database): WorkflowRun[] {
       r.status,
       r.working_path,
       r.started_at,
-      e.branch_name
+      e.branch_name,
+      (SELECT MAX(ev.created_at) FROM remote_agent_workflow_events ev WHERE ev.workflow_run_id = r.id) AS ended_at
     FROM remote_agent_workflow_runs r
     LEFT JOIN remote_agent_isolation_environments e ON e.workflow_id = r.id
     ORDER BY
@@ -63,9 +65,11 @@ export function fetchWorkflowRuns(db: Database): WorkflowRun[] {
 
   return rows.map((row) => {
     const startedAt = new Date(row.started_at).getTime();
-    const elapsedSeconds = Math.floor((now - startedAt) / 1000);
+    const endMs = row.status !== "running" && row.ended_at
+      ? new Date(row.ended_at).getTime()
+      : now;
+    const elapsedSeconds = Math.floor((endMs - startedAt) / 1000);
 
-    // Strip 'archon-' prefix from workflow name
     const workflowName = row.workflow_name.startsWith("archon-")
       ? row.workflow_name.slice("archon-".length)
       : row.workflow_name;

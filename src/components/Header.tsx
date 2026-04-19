@@ -8,7 +8,7 @@ export function Header(): React.ReactElement {
         ARCHON TASK UI
       </Text>
       <Text color="white">
-        {"[↑↓] select  [r] refresh  [q] quit"}
+        {"[↑↓] select  [tab] switch tab  [r] refresh  [q] quit"}
       </Text>
     </Box>
   );

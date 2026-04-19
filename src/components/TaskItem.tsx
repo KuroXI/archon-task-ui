@@ -36,20 +36,24 @@ export function TaskItem({ run, isSelected }: TaskItemProps): React.ReactElement
   const separator = "─".repeat(32);
 
   return (
-    <Box flexDirection="column" width={32}>
-      <Box flexDirection="row">
+    <Box flexDirection="column" width={32} overflow="hidden">
+      <Box flexDirection="row" width={32}>
         <Text bold={isSelected}>{prefix}</Text>
         <Text color={color as Parameters<typeof Text>[0]["color"]}>{icon} </Text>
-        <Text bold={isSelected} wrap="truncate">
-          {run.workflowName}
-        </Text>
-        <Text color="grey">  {elapsed}</Text>
+        <Box flexGrow={1} overflow="hidden">
+          <Text bold={isSelected} wrap="truncate">
+            {run.workflowName}
+          </Text>
+        </Box>
+        <Text color="grey"> {elapsed}</Text>
       </Box>
-      <Box flexDirection="row">
+      <Box flexDirection="row" width={32}>
         <Text>{"  "}</Text>
-        <Text color="cyan" wrap="truncate">
-          {run.branchName ?? "(no branch)"}
-        </Text>
+        <Box flexGrow={1} overflow="hidden">
+          <Text color="cyan" wrap="truncate">
+            {run.branchName ?? "(no branch)"}
+          </Text>
+        </Box>
       </Box>
       <Text color="grey">{separator}</Text>
     </Box>

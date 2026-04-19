@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { Box, Text, useInput } from "ink";
 import { useArchonTasks } from "../hooks/useArchonTasks.js";
 import { Header } from "./Header.js";
+import { TabBar, TABS } from "./TabBar.js";
+import type { TabFilter } from "./TabBar.js";
 import { TaskList } from "./TaskList.js";
 import { DetailPanel } from "./DetailPanel.js";
 import { openDb, fetchWorkflowEvents } from "../data/db.js";
@@ -14,7 +16,12 @@ interface AppProps {
 
 export function App({ dbPath }: AppProps): React.ReactElement {
   const { runs, selectedIndex, setSelectedIndex, refresh, error } = useArchonTasks(dbPath);
+  const [activeTab, setActiveTab] = useState<TabFilter>("running");
   const [logScrollOffset, setLogScrollOffset] = useState(0);
+
+  const filteredRuns = activeTab === "all"
+    ? runs
+    : runs.filter((r) => r.status === activeTab);
   const [events, setEvents] = useState<WorkflowEvent[]>([]);
   const eventsDbRef = useRef<Database | null>(null);
 
@@ -35,7 +42,7 @@ export function App({ dbPath }: AppProps): React.ReactElement {
   }, [dbPath, error]);
 
   // Fetch events for the selected run
-  const selectedRun = runs[selectedIndex] ?? null;
+  const selectedRun = filteredRuns[selectedIndex] ?? null;
   useEffect(() => {
     // Reset log scroll offset when selected task changes
     setLogScrollOffset(0);
@@ -66,10 +73,14 @@ export function App({ dbPath }: AppProps): React.ReactElement {
 
   // Keyboard handling — only active when stdin is a TTY (not in tests)
   useInput((input, key) => {
-    if (key.upArrow) {
+    if (key.tab) {
+      const current = TABS.indexOf(activeTab);
+      setActiveTab(TABS[(current + 1) % TABS.length]);
+      setSelectedIndex(0);
+    } else if (key.upArrow) {
       setSelectedIndex(Math.max(0, selectedIndex - 1));
     } else if (key.downArrow) {
-      setSelectedIndex(Math.min(runs.length - 1, selectedIndex + 1));
+      setSelectedIndex(Math.min(filteredRuns.length - 1, selectedIndex + 1));
     } else if (input === "j") {
       // Scroll log toward older entries (increase offset)
       setLogScrollOffset((prev) => prev + 1);
@@ -97,9 +108,12 @@ export function App({ dbPath }: AppProps): React.ReactElement {
   return (
     <Box flexDirection="column" height={process.stdout.rows}>
       <Header />
+      <TabBar activeTab={activeTab} />
       <Box flexDirection="row" flexGrow={1}>
-        <TaskList runs={runs} selectedIndex={selectedIndex} />
-        <Box flexDirection="column">
+        <Box flexShrink={0} width={32} overflow="hidden">
+          <TaskList runs={filteredRuns} selectedIndex={selectedIndex} />
+        </Box>
+        <Box flexDirection="column" flexShrink={0} flexGrow={0}>
           <Text color="grey">{"│"}</Text>
         </Box>
         <DetailPanel run={selectedRun} events={events} logScrollOffset={logScrollOffset} />

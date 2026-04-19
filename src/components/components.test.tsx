@@ -48,19 +48,19 @@ describe("TaskItem", () => {
   });
 
   it("renders completed status with ✓ icon", () => {
-    const run = makeRun({ status: "completed", elapsedSeconds: 600 });
+    const run = makeRun({ status: "completed" });
     const { lastFrame } = render(<TaskItem run={run} isSelected={false} />);
     expect(lastFrame()).toContain("✓");
   });
 
   it("renders failed status with ✗ icon", () => {
-    const run = makeRun({ status: "failed", elapsedSeconds: 30 });
+    const run = makeRun({ status: "failed" });
     const { lastFrame } = render(<TaskItem run={run} isSelected={false} />);
     expect(lastFrame()).toContain("✗");
   });
 
   it("renders cancelled status with ○ icon", () => {
-    const run = makeRun({ status: "cancelled", elapsedSeconds: 120 });
+    const run = makeRun({ status: "cancelled" });
     const { lastFrame } = render(<TaskItem run={run} isSelected={false} />);
     expect(lastFrame()).toContain("○");
   });

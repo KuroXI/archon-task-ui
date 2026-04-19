@@ -64,7 +64,7 @@ describe("fetchWorkflowRuns", () => {
 
     db.exec(`
       INSERT INTO remote_agent_workflow_runs VALUES
-        ('run-2', 'archon-lint', 'completed', null, '2020-01-01T00:00:00.000Z');
+        ('run-2', 'archon-lint', 'running', null, '2020-01-01T00:00:00.000Z');
     `);
 
     const runs = fetchWorkflowRuns(db);
@@ -72,7 +72,7 @@ describe("fetchWorkflowRuns", () => {
     expect(runs[0].branchName).toBeNull();
   });
 
-  it("orders running tasks first, then by started_at DESC", () => {
+  it("orders running first, then by started_at DESC", () => {
     const db = new Database(":memory:");
     createSchema(db);
 
@@ -84,9 +84,43 @@ describe("fetchWorkflowRuns", () => {
     `);
 
     const runs = fetchWorkflowRuns(db);
-    expect(runs[0].id).toBe("run-c"); // running first
-    expect(runs[1].id).toBe("run-b"); // then newest completed
-    expect(runs[2].id).toBe("run-a"); // then oldest completed
+    expect(runs[0].id).toBe("run-c");
+    expect(runs[1].id).toBe("run-b");
+    expect(runs[2].id).toBe("run-a");
+  });
+
+  it("returns all statuses", () => {
+    const db = new Database(":memory:");
+    createSchema(db);
+
+    db.exec(`
+      INSERT INTO remote_agent_workflow_runs VALUES
+        ('run-s', 'archon-foo', 'stopped', null, '2020-01-01T00:00:00.000Z'),
+        ('run-c', 'archon-baz', 'completed', null, '2020-01-02T00:00:00.000Z'),
+        ('run-x', 'archon-qux', 'cancelled', null, '2020-01-03T00:00:00.000Z'),
+        ('run-fail', 'archon-quux', 'failed', null, '2020-01-04T00:00:00.000Z'),
+        ('run-r', 'archon-run', 'running', null, '2020-01-05T00:00:00.000Z');
+    `);
+
+    const runs = fetchWorkflowRuns(db);
+    expect(runs).toHaveLength(5);
+    expect(runs[0].id).toBe("run-r"); // running first
+  });
+
+  it("uses last event time as elapsed for non-running tasks", () => {
+    const db = new Database(":memory:");
+    createSchema(db);
+
+    db.exec(`
+      INSERT INTO remote_agent_workflow_runs VALUES
+        ('run-done', 'archon-foo', 'completed', null, '2020-01-01T00:00:00.000Z');
+      INSERT INTO remote_agent_workflow_events VALUES
+        ('evt-1', 'run-done', 'step_completed', 'plan', null, '2020-01-01T00:01:00.000Z'),
+        ('evt-2', 'run-done', 'step_completed', 'report', null, '2020-01-01T00:02:00.000Z');
+    `);
+
+    const runs = fetchWorkflowRuns(db);
+    expect(runs[0].elapsedSeconds).toBe(120); // 2 minutes exactly
   });
 
   it("does not strip prefix when workflow_name does not start with archon-", () => {
@@ -95,7 +129,7 @@ describe("fetchWorkflowRuns", () => {
 
     db.exec(`
       INSERT INTO remote_agent_workflow_runs VALUES
-        ('run-3', 'my-workflow', 'completed', null, '2020-01-01T00:00:00.000Z');
+        ('run-3', 'my-workflow', 'running', null, '2020-01-01T00:00:00.000Z');
     `);
 
     const runs = fetchWorkflowRuns(db);
