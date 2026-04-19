@@ -360,15 +360,17 @@ describe("buildToolCallLog", () => {
       },
     ];
 
+    // tool_called + tool_completed pair = 1 entry
     const log = buildToolCallLog(events);
-    expect(log).toHaveLength(2);
-    expect(log[0].eventType).toBe("tool_called");
-    expect(log[1].eventType).toBe("tool_completed");
+    expect(log).toHaveLength(1);
+    expect(log[0].toolName).toBe("bash");
+    expect(log[0].status).toBe("completed");
+    expect(log[0].durationMs).toBe(1000);
   });
 
-  it("caps at 50 entries when more than 50 tool events exist", () => {
+  it("caps at 20 entries when more than 20 tool_called events exist", () => {
     const events: WorkflowEvent[] = [];
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 30; i++) {
       events.push({
         id: `e${i}`,
         workflowRunId: "r1",
@@ -380,10 +382,9 @@ describe("buildToolCallLog", () => {
     }
 
     const log = buildToolCallLog(events);
-    expect(log).toHaveLength(50);
-    // Should be the LAST 50 events (indices 10-59)
+    expect(log).toHaveLength(20);
     expect(log[0].createdAt).toBe("2020-01-01T00:10:00.000Z");
-    expect(log[49].createdAt).toBe("2020-01-01T00:59:00.000Z");
+    expect(log[19].createdAt).toBe("2020-01-01T00:29:00.000Z");
   });
 
   it("returns empty array when no tool events", () => {
@@ -415,9 +416,10 @@ describe("buildToolCallLog", () => {
     ];
 
     const log = buildToolCallLog(events);
-    expect(log[0].eventType).toBe("tool_called");
     expect(log[0].toolName).toBe("read_file");
-    expect(log[0].data).toBe('{"path":"src/main.ts"}');
+    expect(log[0].status).toBe("running");
+    expect(log[0].durationMs).toBeNull();
     expect(log[0].createdAt).toBe("2020-01-01T00:00:01.000Z");
+    expect(log[0].fields).toEqual([{ key: "path", value: "src/main.ts" }]);
   });
 });

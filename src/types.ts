@@ -29,8 +29,9 @@ export interface StepSummary {
 }
 
 export interface ToolCallEntry {
-  eventType: string;
   toolName: string;
-  data: string | null;
+  fields: Array<{ key: string; value: string }>;
+  durationMs: number | null;
+  status: "running" | "completed" | "failed";
   createdAt: string;
 }

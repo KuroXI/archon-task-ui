@@ -22,9 +22,10 @@ function makeStep(overrides: Partial<StepSummary> = {}): StepSummary {
 
 function makeEntry(overrides: Partial<ToolCallEntry> = {}): ToolCallEntry {
   return {
-    eventType: "tool_called",
     toolName: "bash",
-    data: '{"cmd":"ls"}',
+    fields: [{ key: "cmd", value: "ls" }],
+    durationMs: 500,
+    status: "completed",
     createdAt: "2020-01-01T00:00:01.000Z",
     ...overrides,
   };
@@ -154,43 +155,43 @@ describe("LogOutput", () => {
     expect(frame.toLowerCase()).toContain("no tool calls");
   });
 
-  it("renders → for tool_called entries", () => {
-    const entries = [makeEntry({ eventType: "tool_called" })];
+  it("renders ✓ for completed entries", () => {
+    const entries = [makeEntry({ status: "completed" })];
     const { lastFrame } = render(<LogOutput entries={entries} scrollOffset={0} />);
-    expect(lastFrame()).toContain("→");
+    expect(lastFrame()).toContain("✓");
   });
 
-  it("renders ← for tool_completed entries", () => {
-    const entries = [makeEntry({ eventType: "tool_completed" })];
+  it("renders ✗ for failed entries", () => {
+    const entries = [makeEntry({ status: "failed" })];
     const { lastFrame } = render(<LogOutput entries={entries} scrollOffset={0} />);
-    expect(lastFrame()).toContain("←");
+    expect(lastFrame()).toContain("✗");
   });
 
-  it("shows last 12 entries at scrollOffset=0 when more than 12 exist", () => {
+  it("shows last 8 entries at scrollOffset=0 when more than 8 exist", () => {
     const entries: ToolCallEntry[] = [];
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 15; i++) {
       entries.push(makeEntry({ toolName: `tool-${i}`, createdAt: `2020-01-01T00:00:${String(i).padStart(2,"0")}.000Z` }));
     }
     const { lastFrame } = render(<LogOutput entries={entries} scrollOffset={0} />);
     const frame = lastFrame() ?? "";
-    // Should show tools 8-19 (last 12)
-    expect(frame).toContain("tool-19"); // last entry
-    expect(frame).toContain("tool-8");  // 12th from end
-    expect(frame).not.toContain("tool-7"); // beyond 12
+    // Should show tools 7-14 (last 8)
+    expect(frame).toContain("tool-14");
+    expect(frame).toContain("tool-7");
+    expect(frame).not.toContain("tool-6");
   });
 
   it("shows older entries when scrollOffset > 0", () => {
     const entries: ToolCallEntry[] = [];
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 15; i++) {
       entries.push(makeEntry({ toolName: `tool-${i}`, createdAt: `2020-01-01T00:00:${String(i).padStart(2,"0")}.000Z` }));
     }
-    const { lastFrame } = render(<LogOutput entries={entries} scrollOffset={5} />);
+    const { lastFrame } = render(<LogOutput entries={entries} scrollOffset={3} />);
     const frame = lastFrame() ?? "";
-    // endIndex = 20 - 5 = 15, startIndex = max(0, 15-12) = 3
-    // Shows entries 3-14
-    expect(frame).toContain("tool-14");
-    expect(frame).toContain("tool-3");
-    expect(frame).not.toContain("tool-15"); // beyond end
+    // endIndex = 15 - 3 = 12, startIndex = max(0, 12-8) = 4
+    // Shows entries 4-11
+    expect(frame).toContain("tool-11");
+    expect(frame).toContain("tool-4");
+    expect(frame).not.toContain("tool-12");
   });
 
   it("renders tool name in output", () => {

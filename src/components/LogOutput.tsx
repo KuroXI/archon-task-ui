@@ -7,12 +7,20 @@ interface LogOutputProps {
   scrollOffset: number;
 }
 
-const VISIBLE_LINES = 12;
+const VISIBLE_ENTRIES = 8;
+
+function formatDuration(ms: number | null): string {
+  if (ms === null) return "";
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function truncate(str: string, max: number): string {
+  return str.length > max ? str.slice(0, max - 1) + "…" : str;
+}
 
 export function LogOutput({ entries, scrollOffset }: LogOutputProps): React.ReactElement {
-  const heading = (
-    <Text bold>{"TOOL CALLS  (j/k scroll)"}</Text>
-  );
+  const heading = <Text bold>{"TOOL CALLS  (j/k scroll)"}</Text>;
 
   if (entries.length === 0) {
     return (
@@ -23,43 +31,36 @@ export function LogOutput({ entries, scrollOffset }: LogOutputProps): React.Reac
     );
   }
 
-  // Calculate the visible slice
-  // scrollOffset=0 shows last 12; scrollOffset=N shows 12 entries ending at entries.length - N
   const endIndex = entries.length - scrollOffset;
-  const startIndex = Math.max(0, endIndex - VISIBLE_LINES);
+  const startIndex = Math.max(0, endIndex - VISIBLE_ENTRIES);
   const visible = entries.slice(startIndex, endIndex);
 
   return (
     <Box flexDirection="column">
       {heading}
       {visible.map((entry, i) => {
-        const isToolCalled = entry.eventType === "tool_called";
-        const arrow = isToolCalled ? "→" : "←";
-        const color = isToolCalled ? "yellow" : "green";
+        const isRunning = entry.status === "running";
+        const isFailed = entry.status === "failed";
 
-        // Format the data as a single-line JSON string, truncated
-        let dataStr = "";
-        if (entry.data) {
-          try {
-            dataStr = JSON.stringify(JSON.parse(entry.data));
-          } catch {
-            dataStr = entry.data;
-          }
-        }
+        const statusIcon = isRunning ? "⟳" : isFailed ? "✗" : "✓";
+        const iconColor = isRunning ? "yellow" : isFailed ? "red" : "green";
+        const duration = formatDuration(entry.durationMs);
 
         return (
-          <Box key={`${entry.createdAt}-${i}`} flexDirection="row" gap={1}>
-            <Text color={color as Parameters<typeof Text>[0]["color"]}>
-              {arrow} {entry.eventType}
-            </Text>
-            <Text color={color as Parameters<typeof Text>[0]["color"]} wrap="truncate">
-              {entry.toolName}
-            </Text>
-            {dataStr ? (
-              <Text color="grey" wrap="truncate">
-                {dataStr}
-              </Text>
-            ) : null}
+          <Box key={`${entry.createdAt}-${i}`} flexDirection="column" marginBottom={0}>
+            <Box flexDirection="row" gap={1}>
+              <Text color={iconColor as Parameters<typeof Text>[0]["color"]}>{statusIcon}</Text>
+              <Text bold>{entry.toolName}</Text>
+              {duration ? <Text color="grey">{duration}</Text> : null}
+            </Box>
+            {entry.fields.map((f) => (
+              <Box key={f.key} flexDirection="row" gap={1} paddingLeft={2}>
+                <Text color="grey">{f.key}:</Text>
+                <Text color="cyan" wrap="truncate">
+                  {truncate(f.value, 80)}
+                </Text>
+              </Box>
+            ))}
           </Box>
         );
       })}

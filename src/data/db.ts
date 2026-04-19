@@ -222,35 +222,128 @@ export function buildStepSummaries(events: WorkflowEvent[]): StepSummary[] {
   });
 }
 
-export function buildToolCallLog(events: WorkflowEvent[]): ToolCallEntry[] {
-  const toolEvents = events.filter(
-    (e) => e.eventType === "tool_called" || e.eventType === "tool_completed"
-  );
+function extractToolName(event: WorkflowEvent): string {
+  let toolName = event.stepName ?? "";
+  if (!toolName && event.data) {
+    try {
+      const parsed = JSON.parse(event.data) as Record<string, unknown>;
+      if (typeof parsed.tool_name === "string") toolName = parsed.tool_name;
+      else if (typeof parsed.name === "string") toolName = parsed.name;
+    } catch { /* ignore */ }
+  }
+  return toolName;
+}
 
-  // Return last 50
-  const last50 = toolEvents.slice(-50);
+function str(v: unknown): string | null {
+  return typeof v === "string" && v.length > 0 ? v : null;
+}
 
-  return last50.map((event) => {
-    // Extract toolName from step_name or data JSON
-    let toolName = event.stepName ?? "";
-    if (!toolName && event.data) {
-      try {
-        const parsed = JSON.parse(event.data) as Record<string, unknown>;
-        if (typeof parsed.tool_name === "string") {
-          toolName = parsed.tool_name;
-        } else if (typeof parsed.name === "string") {
-          toolName = parsed.name;
+function extractFields(toolName: string, data: string | null): Array<{ key: string; value: string }> {
+  if (!data) return [];
+  try {
+    const parsed = JSON.parse(data) as Record<string, unknown>;
+    const p = (parsed.tool_input && typeof parsed.tool_input === "object" && !Array.isArray(parsed.tool_input))
+      ? parsed.tool_input as Record<string, unknown>
+      : parsed;
+    const lower = toolName.toLowerCase();
+    const fields: Array<{ key: string; value: string }> = [];
+
+    if (lower === "read") {
+      const path = str(p.file_path ?? p.path);
+      if (path) fields.push({ key: "path", value: path });
+      if (typeof p.offset === "number") fields.push({ key: "offset", value: String(p.offset) });
+      if (typeof p.limit === "number") fields.push({ key: "limit", value: String(p.limit) });
+    } else if (lower === "write") {
+      const path = str(p.file_path ?? p.path);
+      if (path) fields.push({ key: "path", value: path });
+    } else if (lower === "edit") {
+      const path = str(p.file_path ?? p.path);
+      if (path) fields.push({ key: "path", value: path });
+      const old = str(p.old_string);
+      if (old) fields.push({ key: "match", value: old.split("\n")[0] });
+    } else if (lower === "bash") {
+      const cmd = str(p.command);
+      if (cmd) fields.push({ key: "cmd", value: cmd });
+      if (p.run_in_background) fields.push({ key: "bg", value: "true" });
+    } else if (lower === "grep") {
+      const pattern = str(p.pattern);
+      if (pattern) fields.push({ key: "pattern", value: pattern });
+      const path = str(p.path);
+      if (path) fields.push({ key: "in", value: path });
+      const glob = str(p.glob);
+      if (glob) fields.push({ key: "glob", value: glob });
+    } else if (lower === "glob") {
+      const pattern = str(p.pattern);
+      if (pattern) fields.push({ key: "pattern", value: pattern });
+      const path = str(p.path);
+      if (path) fields.push({ key: "in", value: path });
+    } else if (lower === "webfetch") {
+      const url = str(p.url);
+      if (url) fields.push({ key: "url", value: url });
+    } else if (lower === "websearch") {
+      const query = str(p.query);
+      if (query) fields.push({ key: "query", value: query });
+    } else if (lower === "agent") {
+      const desc = str(p.description);
+      if (desc) fields.push({ key: "task", value: desc });
+      const prompt = str(p.prompt);
+      if (prompt) fields.push({ key: "prompt", value: prompt.split("\n")[0] });
+    } else {
+      // Generic: first 3 short string/number values
+      let count = 0;
+      for (const [key, val] of Object.entries(p)) {
+        if (count >= 3) break;
+        if (typeof val === "string" && val.length > 0 && val.length < 300) {
+          fields.push({ key, value: val });
+          count++;
+        } else if (typeof val === "number") {
+          fields.push({ key, value: String(val) });
+          count++;
         }
-      } catch {
-        // ignore
       }
     }
 
-    return {
-      eventType: event.eventType,
-      toolName,
-      data: event.data,
-      createdAt: event.createdAt,
-    };
-  });
+    return fields;
+  } catch { /* ignore */ }
+  return [];
+}
+
+export function buildToolCallLog(events: WorkflowEvent[]): ToolCallEntry[] {
+  const toolEvents = events.filter(
+    (e) => e.eventType === "tool_called" || e.eventType === "tool_completed" || e.eventType === "tool_failed"
+  );
+
+  // Pair tool_called with tool_completed/tool_failed by toolName (FIFO per name)
+  const pending = new Map<string, Array<{ event: WorkflowEvent; index: number }>>();
+  const entries: ToolCallEntry[] = [];
+
+  for (const event of toolEvents) {
+    const toolName = extractToolName(event);
+
+    if (event.eventType === "tool_called") {
+      const entry: ToolCallEntry = {
+        toolName,
+        fields: extractFields(toolName, event.data),
+        durationMs: null,
+        status: "running",
+        createdAt: event.createdAt,
+      };
+      const idx = entries.push(entry) - 1;
+      if (!pending.has(toolName)) pending.set(toolName, []);
+      pending.get(toolName)!.push({ event, index: idx });
+    } else {
+      const queue = pending.get(toolName);
+      if (queue && queue.length > 0) {
+        const { event: callEvent, index } = queue.shift()!;
+        const durationMs = new Date(event.createdAt).getTime() - new Date(callEvent.createdAt).getTime();
+        entries[index] = {
+          ...entries[index],
+          durationMs,
+          status: event.eventType === "tool_failed" ? "failed" : "completed",
+        };
+      }
+    }
+  }
+
+  return entries.slice(-20);
 }
