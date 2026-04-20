@@ -45,7 +45,10 @@ export function TaskItem({ run, isSelected }: TaskItemProps): React.ReactElement
             {run.id}
           </Text>
         </Box>
-        <Text color="grey"> {elapsed}</Text>
+      </Box>
+      <Box flexDirection="row" width={32}>
+        <Text>{"    "}</Text>
+        <Text color="grey">{elapsed}</Text>
       </Box>
       <Box flexDirection="row" width={32}>
         <Text>{"  "}</Text>

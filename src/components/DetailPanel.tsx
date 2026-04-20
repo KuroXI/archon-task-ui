@@ -42,15 +42,6 @@ function parallelGroupStatus(steps: StepSummary[]): string {
   return "cancelled";
 }
 
-// Flat ordered list of all leaf steps (used for cursor navigation)
-function flattenSteps(steps: ReturnType<typeof buildStepGroups>): StepSummary[] {
-  const result: StepSummary[] = [];
-  for (const group of steps) {
-    if (group.type === "single") result.push(group.step);
-    else result.push(...group.steps);
-  }
-  return result;
-}
 
 
 function ToolCallsPanel({ toolCalls, scroll }: { toolCalls: ToolCallEntry[]; scroll: number }): React.ReactElement {
@@ -100,18 +91,17 @@ export function DetailPanel({ run, events }: DetailPanelProps): React.ReactEleme
 
   const steps = run ? buildStepSummaries(events) : [];
   const groups = buildStepGroups(steps);
-  const flatSteps = flattenSteps(groups);
   const toolCallMap = run ? buildStepToolCallMap(events) : new Map<string, ToolCallEntry[]>();
 
   // Clamp stepIndex when steps change (e.g. new step arrives)
   useEffect(() => {
-    if (flatSteps.length === 0) {
+    if (groups.length === 0) {
       setStepIndex(0);
       setStepScroll(0);
     } else {
-      setStepIndex((prev) => Math.min(prev, flatSteps.length - 1));
+      setStepIndex((prev) => Math.min(prev, groups.length - 1));
     }
-  }, [flatSteps.length]);
+  }, [groups.length]);
 
   // Keep scroll window around cursor
   useEffect(() => {
@@ -122,8 +112,12 @@ export function DetailPanel({ run, events }: DetailPanelProps): React.ReactEleme
     });
   }, [stepIndex]);
 
-  const selectedStep = flatSteps[stepIndex] ?? null;
-  const selectedToolCalls = selectedStep ? (toolCallMap.get(selectedStep.stepName) ?? []) : [];
+  const selectedGroup = groups[stepIndex] ?? null;
+  const selectedToolCalls = selectedGroup
+    ? selectedGroup.type === "single"
+      ? (toolCallMap.get(selectedGroup.step.stepName) ?? [])
+      : selectedGroup.steps.flatMap((s) => toolCallMap.get(s.stepName) ?? [])
+    : [];
 
   useEffect(() => {
     setToolCallScroll(0);
@@ -131,7 +125,7 @@ export function DetailPanel({ run, events }: DetailPanelProps): React.ReactEleme
 
   useInput((input, key) => {
     if (!run) return;
-    if (input === "j") setStepIndex((prev) => Math.min(Math.max(0, flatSteps.length - 1), prev + 1));
+    if (input === "j") setStepIndex((prev) => Math.min(Math.max(0, groups.length - 1), prev + 1));
     if (input === "k") setStepIndex((prev) => Math.max(0, prev - 1));
     if (input === "n") setToolCallScroll((prev) => Math.max(0, prev - 1));
     if (input === "m") setToolCallScroll((prev) => {
@@ -151,22 +145,18 @@ export function DetailPanel({ run, events }: DetailPanelProps): React.ReactEleme
   const elapsed = formatElapsed(run.elapsedSeconds);
   const branchDisplay = run.branchName ?? "(no branch)";
 
-  // Build visible step rows with cursor tracking
-  // We render group-aware rows but track a flat index for the cursor
-  let flatIdx = -1;
-
+  // Build visible step rows — each group is one nav item
   const visibleRows: React.ReactElement[] = [];
-  for (const group of groups) {
-    if (group.type === "single") {
-      flatIdx++;
-      const rowFlatIdx = flatIdx;
-      if (rowFlatIdx < stepScroll || rowFlatIdx >= stepScroll + VISIBLE_STEPS) continue;
+  for (let groupIdx = 0; groupIdx < groups.length; groupIdx++) {
+    if (groupIdx < stepScroll || groupIdx >= stepScroll + VISIBLE_STEPS) continue;
+    const group = groups[groupIdx];
+    const isSelected = groupIdx === stepIndex;
 
+    if (group.type === "single") {
       const step = group.step;
       const { icon, color } = stepIcon(step.status);
       const isRunning = step.status === "running";
       const duration = formatDuration(step.durationMs);
-      const isSelected = rowFlatIdx === stepIndex;
       const iterLabel =
         step.loopIteration !== null && step.loopIteration > 0 && step.maxIterations !== null
           ? ` iter ${step.loopIteration}/${step.maxIterations}`
@@ -185,51 +175,32 @@ export function DetailPanel({ run, events }: DetailPanelProps): React.ReactEleme
         </Box>
       );
     } else {
-      // Parallel group header (not selectable, rendered if any sub-step is visible)
       const groupStatus = parallelGroupStatus(group.steps);
       const { icon, color } = stepIcon(groupStatus);
-      const firstSubIdx = flatIdx + 1;
-      const lastSubIdx = flatIdx + group.steps.length;
-      const anyVisible =
-        lastSubIdx >= stepScroll && firstSubIdx < stepScroll + VISIBLE_STEPS;
 
-      if (anyVisible) {
-        visibleRows.push(
-          <Box key={`parallel-header-${firstSubIdx}`} flexDirection="row" gap={1}>
-            <Text>{"  "}</Text>
+      visibleRows.push(
+        <Box key={`parallel-${groupIdx}`} flexDirection="column">
+          <Box flexDirection="row" gap={1}>
+            <Text color="cyan">{isSelected ? "▶" : " "}</Text>
             <Text color={color as Parameters<typeof Text>[0]["color"]}>{icon}</Text>
             <Text color="cyan" bold>[ parallel ({group.steps.length}) ]</Text>
           </Box>
-        );
-      }
-
-      for (const step of group.steps) {
-        flatIdx++;
-        const rowFlatIdx = flatIdx;
-        if (rowFlatIdx < stepScroll || rowFlatIdx >= stepScroll + VISIBLE_STEPS) continue;
-
-        const { icon: sIcon, color: sColor } = stepIcon(step.status);
-        const isRunning = step.status === "running";
-        const duration = formatDuration(step.durationMs);
-        const isSelected = rowFlatIdx === stepIndex;
-        const iterLabel =
-          step.loopIteration !== null && step.loopIteration > 0 && step.maxIterations !== null
-            ? ` iter ${step.loopIteration}/${step.maxIterations}`
-            : "";
-        const retryLabel =
-          step.retryCount !== null && step.retryCount > 0 ? ` retry ${step.retryCount}` : "";
-
-        visibleRows.push(
-          <Box key={step.stepName} flexDirection="row" gap={1} paddingLeft={2}>
-            <Text color="cyan">{isSelected ? "▶" : " "}</Text>
-            <Text color={sColor as Parameters<typeof Text>[0]["color"]}>{sIcon}</Text>
-            <Text color={isRunning ? "cyan" : undefined} bold={isSelected || isRunning}>
-              {step.stepName}{iterLabel}{retryLabel}
-            </Text>
-            {duration ? <Text color="grey">{duration}</Text> : null}
-          </Box>
-        );
-      }
+          {group.steps.map((step) => {
+            const { icon: sIcon, color: sColor } = stepIcon(step.status);
+            const isRunning = step.status === "running";
+            const duration = formatDuration(step.durationMs);
+            return (
+              <Box key={step.stepName} flexDirection="row" gap={1} paddingLeft={3}>
+                <Text color={sColor as Parameters<typeof Text>[0]["color"]}>{sIcon}</Text>
+                <Text color={isRunning ? "cyan" : undefined}>
+                  {step.stepName}
+                </Text>
+                {duration ? <Text color="grey">{duration}</Text> : null}
+              </Box>
+            );
+          })}
+        </Box>
+      );
     }
   }
 
@@ -255,9 +226,9 @@ export function DetailPanel({ run, events }: DetailPanelProps): React.ReactEleme
           ) : (
             visibleRows
           )}
-          {flatSteps.length > VISIBLE_STEPS && (
+          {groups.length > VISIBLE_STEPS && (
             <Text color="grey">
-              {stepScroll + 1}–{Math.min(stepScroll + VISIBLE_STEPS, flatSteps.length)}/{flatSteps.length}
+              {stepScroll + 1}–{Math.min(stepScroll + VISIBLE_STEPS, groups.length)}/{groups.length}
             </Text>
           )}
         </Box>
