@@ -203,38 +203,38 @@ describe("LogOutput", () => {
 
 describe("DetailPanel", () => {
   it("renders 'Select a task.' when run is null", () => {
-    const { lastFrame } = render(<DetailPanel run={null} events={[]} logScrollOffset={0} />);
+    const { lastFrame } = render(<DetailPanel run={null} events={[]} />);
     const frame = lastFrame() ?? "";
     expect(frame.toLowerCase()).toContain("select a task");
   });
 
   it("renders workflowName in title", () => {
     const run = makeRun({ workflowName: "my-workflow" });
-    const { lastFrame } = render(<DetailPanel run={run} events={[]} logScrollOffset={0} />);
+    const { lastFrame } = render(<DetailPanel run={run} events={[]} />);
     expect(lastFrame()).toContain("my-workflow");
   });
 
   it("renders branchName in title", () => {
     const run = makeRun({ branchName: "feat/my-branch" });
-    const { lastFrame } = render(<DetailPanel run={run} events={[]} logScrollOffset={0} />);
+    const { lastFrame } = render(<DetailPanel run={run} events={[]} />);
     expect(lastFrame()).toContain("feat/my-branch");
   });
 
   it("renders elapsed time in title", () => {
     const run = makeRun({ elapsedSeconds: 3 * 3600 + 42 * 60 + 7 });
-    const { lastFrame } = render(<DetailPanel run={run} events={[]} logScrollOffset={0} />);
+    const { lastFrame } = render(<DetailPanel run={run} events={[]} />);
     expect(lastFrame()).toContain("03:42:07");
   });
 
   it("renders STEPS heading from StepList", () => {
     const run = makeRun();
-    const { lastFrame } = render(<DetailPanel run={run} events={[]} logScrollOffset={0} />);
+    const { lastFrame } = render(<DetailPanel run={run} events={[]} />);
     expect(lastFrame()).toContain("STEPS");
   });
 
   it("renders TOOL CALLS heading from LogOutput", () => {
     const run = makeRun();
-    const { lastFrame } = render(<DetailPanel run={run} events={[]} logScrollOffset={0} />);
+    const { lastFrame } = render(<DetailPanel run={run} events={[]} />);
     expect(lastFrame()).toContain("TOOL CALLS");
   });
 
@@ -258,7 +258,7 @@ describe("DetailPanel", () => {
         createdAt: "2020-01-01T00:00:02.100Z",
       },
     ];
-    const { lastFrame } = render(<DetailPanel run={run} events={events} logScrollOffset={0} />);
+    const { lastFrame } = render(<DetailPanel run={run} events={events} />);
     const frame = lastFrame() ?? "";
     expect(frame).toContain("plan");
     expect(frame).toContain("✓");

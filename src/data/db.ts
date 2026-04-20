@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import { homedir } from "os";
 import { join } from "path";
-import type { WorkflowRun, WorkflowEvent, StepSummary, ToolCallEntry } from "../types.js";
+import type { WorkflowRun, WorkflowEvent, StepSummary, ToolCallEntry, StepGroup } from "../types.js";
 
 const DEFAULT_DB_PATH = join(homedir(), ".archon", "archon.db");
 
@@ -306,6 +306,91 @@ function extractFields(toolName: string, data: string | null): Array<{ key: stri
     return fields;
   } catch { /* ignore */ }
   return [];
+}
+
+export function buildStepGroups(steps: StepSummary[]): StepGroup[] {
+  if (steps.length === 0) return [];
+
+  const sorted = [...steps].sort(
+    (a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime()
+  );
+
+  const groups: StepGroup[] = [];
+  let bucket: StepSummary[] = [];
+  let bucketEnd = 0;
+
+  for (const step of sorted) {
+    const start = new Date(step.startedAt).getTime();
+    const end = step.completedAt ? new Date(step.completedAt).getTime() : Date.now();
+
+    if (bucket.length === 0) {
+      bucket = [step];
+      bucketEnd = end;
+    } else if (start < bucketEnd) {
+      bucket.push(step);
+      bucketEnd = Math.max(bucketEnd, end);
+    } else {
+      groups.push(bucket.length === 1 ? { type: "single", step: bucket[0] } : { type: "parallel", steps: bucket });
+      bucket = [step];
+      bucketEnd = end;
+    }
+  }
+
+  if (bucket.length > 0) {
+    groups.push(bucket.length === 1 ? { type: "single", step: bucket[0] } : { type: "parallel", steps: bucket });
+  }
+
+  return groups;
+}
+
+export function buildStepToolCallMap(events: WorkflowEvent[]): Map<string, ToolCallEntry[]> {
+  const map = new Map<string, ToolCallEntry[]>();
+  let currentStep: string | null = null;
+
+  const allEntries: Array<{ entry: ToolCallEntry; stepName: string | null }> = [];
+  const pending = new Map<string, Array<{ globalIndex: number; callEvent: WorkflowEvent }>>();
+
+  for (const event of events) {
+    if (event.eventType === "node_started" && event.stepName) {
+      currentStep = event.stepName;
+      if (!map.has(event.stepName)) map.set(event.stepName, []);
+    } else if ((event.eventType === "node_completed" || event.eventType === "node_failed") && event.stepName) {
+      if (currentStep === event.stepName) currentStep = null;
+    } else if (event.eventType === "tool_called") {
+      const toolName = extractToolName(event);
+      const entry: ToolCallEntry = {
+        toolName,
+        fields: extractFields(toolName, event.data),
+        durationMs: null,
+        status: "running",
+        createdAt: event.createdAt,
+      };
+      const globalIndex = allEntries.length;
+      allEntries.push({ entry, stepName: currentStep });
+      if (!pending.has(toolName)) pending.set(toolName, []);
+      pending.get(toolName)!.push({ globalIndex, callEvent: event });
+    } else if (event.eventType === "tool_completed" || event.eventType === "tool_failed") {
+      const toolName = extractToolName(event);
+      const queue = pending.get(toolName);
+      if (queue && queue.length > 0) {
+        const { globalIndex, callEvent } = queue.shift()!;
+        const durationMs = new Date(event.createdAt).getTime() - new Date(callEvent.createdAt).getTime();
+        allEntries[globalIndex].entry = {
+          ...allEntries[globalIndex].entry,
+          durationMs,
+          status: event.eventType === "tool_failed" ? "failed" : "completed",
+        };
+      }
+    }
+  }
+
+  for (const { entry, stepName } of allEntries) {
+    if (stepName !== null && map.has(stepName)) {
+      map.get(stepName)!.push(entry);
+    }
+  }
+
+  return map;
 }
 
 export function buildToolCallLog(events: WorkflowEvent[]): ToolCallEntry[] {

@@ -42,7 +42,7 @@ export function TaskItem({ run, isSelected }: TaskItemProps): React.ReactElement
         <Text color={color as Parameters<typeof Text>[0]["color"]}>{icon} </Text>
         <Box flexGrow={1} overflow="hidden">
           <Text bold={isSelected} wrap="truncate">
-            {run.workflowName}
+            {run.id}
           </Text>
         </Box>
         <Text color="grey"> {elapsed}</Text>

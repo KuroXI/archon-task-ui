@@ -19,7 +19,6 @@ export function App({ dbPath }: AppProps): React.ReactElement {
   const { runs, selectedIndex, setSelectedIndex, refresh, error } = useArchonTasks(dbPath);
   const updateAvailable = useUpdateCheck();
   const [activeTab, setActiveTab] = useState<TabFilter>("running");
-  const [logScrollOffset, setLogScrollOffset] = useState(0);
 
   const filteredRuns = activeTab === "all"
     ? runs
@@ -46,9 +45,6 @@ export function App({ dbPath }: AppProps): React.ReactElement {
   // Fetch events for the selected run
   const selectedRun = filteredRuns[selectedIndex] ?? null;
   useEffect(() => {
-    // Reset log scroll offset when selected task changes
-    setLogScrollOffset(0);
-
     if (!selectedRun || !eventsDbRef.current) {
       setEvents([]);
       return;
@@ -83,12 +79,6 @@ export function App({ dbPath }: AppProps): React.ReactElement {
       setSelectedIndex(Math.max(0, selectedIndex - 1));
     } else if (key.downArrow) {
       setSelectedIndex(Math.min(filteredRuns.length - 1, selectedIndex + 1));
-    } else if (input === "j") {
-      // Scroll log toward older entries (increase offset)
-      setLogScrollOffset((prev) => prev + 1);
-    } else if (input === "k") {
-      // Scroll log toward newer entries (decrease offset, min 0)
-      setLogScrollOffset((prev) => Math.max(0, prev - 1));
     } else if (input === "r") {
       refresh();
     } else if (input === "q") {
@@ -123,7 +113,7 @@ export function App({ dbPath }: AppProps): React.ReactElement {
         <Box flexDirection="column" flexShrink={0} flexGrow={0}>
           <Text color="grey">{"│"}</Text>
         </Box>
-        <DetailPanel run={selectedRun} events={events} logScrollOffset={logScrollOffset} />
+        <DetailPanel run={selectedRun} events={events} />
       </Box>
     </Box>
   );

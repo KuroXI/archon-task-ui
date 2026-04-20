@@ -35,3 +35,7 @@ export interface ToolCallEntry {
   status: "running" | "completed" | "failed";
   createdAt: string;
 }
+
+export type StepGroup =
+  | { type: "single"; step: StepSummary }
+  | { type: "parallel"; steps: StepSummary[] };
